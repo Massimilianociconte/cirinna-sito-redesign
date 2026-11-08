@@ -1,10 +1,21 @@
 /* Cirinnà — interactions. No dependencies; every effect degrades to a static page. */
 (() => {
   const d = document, root = d.documentElement;
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reduce = root.classList.contains('motion-reduced');
   const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
   const $$ = (s, el = d) => [...el.querySelectorAll(s)];
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  // An explicit site preference can override Android's system-wide motion setting.
+  $$('[data-motion-toggle]').forEach(button => {
+    button.setAttribute('aria-pressed', String(!reduce));
+    button.textContent = reduce ? 'Attiva animazioni' : 'Animazioni attive · disattiva';
+    button.addEventListener('click', () => {
+      const choice = reduce ? 'full' : 'reduced';
+      try { localStorage.setItem('cirinna-motion', choice); } catch (_) {}
+      const url = new URL(location.href); url.searchParams.set('motion', choice);
+      location.replace(url.href);
+    });
+  });
 
   /* header: hide on scroll down, show on scroll up, reading progress */
   const hdr = d.querySelector('.hdr');
@@ -35,7 +46,7 @@
       n.style.setProperty('--rx', `${(-y * 5).toFixed(2)}deg`);
       n.style.setProperty('--ry', `${(x * 6).toFixed(2)}deg`);
       n.style.setProperty('--tx', `${(-x * 6).toFixed(1)}px`);
-      n.style.setProperty('--ty', `${(-y * 6).toFixed(1)}px`);
+      n.style.setProperty('--ty', `${(-y * 42).toFixed(1)}px`);
       n.style.setProperty('--mx', `${(50 - x * 35).toFixed(1)}%`);
       n.style.setProperty('--my', `${(40 - y * 35).toFixed(1)}%`);
     }
@@ -64,8 +75,9 @@
   const revealed = $$('[data-reveal], .draw');
   if ('IntersectionObserver' in window && !reduce) {
     const io = new IntersectionObserver(es => es.forEach(e => {
-      if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); }
-    }), { rootMargin: '0px 0px -8% 0px', threshold: .12 });
+      if (e.isIntersecting) e.target.classList.add('is-in');
+      else if (e.boundingClientRect.bottom <= 0 || e.boundingClientRect.top >= innerHeight) e.target.classList.remove('is-in');
+    }), { rootMargin: '0px 0px -4% 0px', threshold: .06 });
     revealed.forEach(el => io.observe(el));
   } else revealed.forEach(el => el.classList.add('is-in'));
 
