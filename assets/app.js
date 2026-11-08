@@ -11,6 +11,8 @@
   let lastY = scrollY, ticking = false;
   const parallax = reduce ? [] : $$('[data-parallax]');
   const steps = d.querySelector('[data-steps]');
+  const touchNiches = new Set();
+  const touchTargets = new WeakMap();
   const onScroll = () => {
     const y = scrollY, max = root.scrollHeight - innerHeight;
     if (hdr) {
@@ -23,6 +25,19 @@
       if (r.bottom < -200 || r.top > innerHeight + 200) continue;
       const k = parseFloat(el.dataset.parallax) * (innerWidth < 760 ? .5 : 1);
       el.style.transform = `translate3d(0,${((r.top + r.height / 2 - innerHeight / 2) * k).toFixed(1)}px,0)`;
+    }
+    // Touch devices have no hover: use viewport position for the same light and perspective.
+    for (const n of touchNiches) {
+      if (touchTargets.has(n)) continue;
+      const r = n.getBoundingClientRect();
+      const x = clamp((r.left + r.width / 2 - innerWidth / 2) / innerWidth, -.5, .5);
+      const y = clamp((r.top + r.height / 2 - innerHeight / 2) / innerHeight, -.5, .5);
+      n.style.setProperty('--rx', `${(-y * 5).toFixed(2)}deg`);
+      n.style.setProperty('--ry', `${(x * 6).toFixed(2)}deg`);
+      n.style.setProperty('--tx', `${(-x * 6).toFixed(1)}px`);
+      n.style.setProperty('--ty', `${(-y * 6).toFixed(1)}px`);
+      n.style.setProperty('--mx', `${(50 - x * 35).toFixed(1)}%`);
+      n.style.setProperty('--my', `${(40 - y * 35).toFixed(1)}%`);
     }
     if (steps) {
       const r = steps.getBoundingClientRect();
@@ -72,6 +87,46 @@
       ['--ry', '--rx', '--tx', '--ty'].forEach(p => n.style.removeProperty(p));
     });
   });
+
+  /* Touch equivalent of mouse tilt and spotlight. Passive events preserve native scrolling and links. */
+  if (!fine && !reduce && 'IntersectionObserver' in window) {
+    const targets = $$('[data-tilt]');
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(({ target: n, isIntersecting }) => {
+        n.classList.toggle('touch-lit', isIntersecting);
+        n.closest('.cat, .card')?.classList.toggle('touch-lit', isIntersecting);
+        if (isIntersecting) touchNiches.add(n);
+        else {
+          touchNiches.delete(n); touchTargets.delete(n);
+          ['--rx', '--ry', '--tx', '--ty', '--mx', '--my'].forEach(k => n.style.removeProperty(k));
+        }
+      });
+      onScroll();
+    }, { threshold: .2 });
+    targets.forEach(n => {
+      io.observe(n);
+      const follow = e => {
+        if (e.pointerType === 'mouse') return;
+        touchTargets.set(n, e.pointerId);
+        const r = n.getBoundingClientRect();
+        const x = clamp((e.clientX - r.left) / r.width, 0, 1), y = clamp((e.clientY - r.top) / r.height, 0, 1);
+        n.style.setProperty('--rx', `${((.5 - y) * 5).toFixed(2)}deg`);
+        n.style.setProperty('--ry', `${((x - .5) * 7).toFixed(2)}deg`);
+        n.style.setProperty('--mx', `${(x * 100).toFixed(1)}%`);
+        n.style.setProperty('--my', `${(y * 100).toFixed(1)}%`);
+      };
+      n.addEventListener('pointerdown', follow, { passive: true });
+      n.addEventListener('pointermove', e => { if (touchTargets.has(n)) follow(e); }, { passive: true });
+    });
+    const release = () => { targets.forEach(n => touchTargets.delete(n)); onScroll(); };
+    addEventListener('pointerup', release, { passive: true });
+    addEventListener('pointercancel', release, { passive: true });
+    // A horizontal carousel scroll does not bubble to window.
+    $$('[data-rail]').forEach(r => r.addEventListener('scroll', () => {
+      if (!ticking) { ticking = true; requestAnimationFrame(onScroll); }
+    }, { passive: true }));
+    addEventListener('pageshow', onScroll, { passive: true });
+  }
 
   /* aromatised oils: accessible tabs with sliding ink */
   $$('[data-switch]').forEach(sw => {
