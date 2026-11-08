@@ -17,6 +17,23 @@
     });
   });
 
+  // Native mobile page fades, including browsers that skip cross-document view transitions.
+  if (!fine && !reduce) {
+    let leaving = false;
+    d.addEventListener('click', e => {
+      const a = e.target.closest('a[href]');
+      if (e.defaultPrevented || !a || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || a.hasAttribute('download') || (a.target && a.target !== '_self')) return;
+      const url = new URL(a.href);
+      if (url.origin !== location.origin || !/^https?:$/.test(url.protocol) || /\.pdf$/i.test(url.pathname) || (url.pathname === location.pathname && url.search === location.search)) return;
+      e.preventDefault();
+      if (leaving) return;
+      leaving = true;
+      root.classList.add('page-leaving');
+      setTimeout(() => { location.assign(url.href); }, 180);
+    });
+    addEventListener('pageshow', () => { leaving = false; root.classList.remove('page-leaving'); });
+  }
+
   /* header: hide on scroll down, show on scroll up, reading progress */
   const hdr = d.querySelector('.hdr');
   let lastY = scrollY, ticking = false;
