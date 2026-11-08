@@ -40,7 +40,7 @@
     navBtn.setAttribute('aria-expanded', open);
     navBtn.querySelector('.sr').textContent = open ? 'Chiudi il menu' : 'Apri il menu';
     d.body.classList.toggle('nav-open', open);
-    if (open) { hdr.classList.remove('is-hidden'); nav.querySelector('a').focus({ preventScroll: true }); }
+    if (open) { hdr.classList.remove('is-hidden'); nav.scrollTop = 0; navBtn.focus({ preventScroll: true }); }
   };
   navBtn && navBtn.addEventListener('click', () => setNav(navBtn.getAttribute('aria-expanded') !== 'true'));
   d.addEventListener('keydown', e => { if (e.key === 'Escape' && d.body.classList.contains('nav-open')) { setNav(false); navBtn.focus(); } });
